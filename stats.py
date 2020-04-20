@@ -8,7 +8,9 @@ import numpy as np
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
+from colour import Color
 from PIL import Image
+
 
 
 class Message:
@@ -37,6 +39,7 @@ class Conversation:
         self.files = self.get_message_files()
         self.messages = self.get_messages()
         self.participants = self.get_all_participants()
+        self.number_of_messages = self.get_number_of_messages()
         self.number_of_messages_per_participants = self.get_number_of_messages_per_participants()
         self.number_of_char_per_participants = self.get_number_of_char_per_participants()
         self.number_of_photos_per_participants = self.get_number_of_photos_per_participants()
@@ -55,7 +58,7 @@ class Conversation:
             with open(f, 'r') as conv_file:
                 data = json.load(conv_file)
                 for p in data['participants']:
-                    participants.add(p['name'])
+                    participants.add((p['name']).encode("iso-8859-1").decode("utf8"))
             return participants
 
     
@@ -89,7 +92,7 @@ class Conversation:
                                     else:
                                         for item in m[m_type]:  # We might have more than one file or one picture
                                             content += item['uri'] + ';'
-                        messages.append(Message(m['sender_name'], m['timestamp_ms'], m['type'], content_type, content))
+                        messages.append(Message(m['sender_name'].encode("iso-8859-1").decode("utf8"), m['timestamp_ms'], m['type'], content_type, content))
                     except Exception as e:
                         print('Error while parsing message, Error: ', e)
                         print(json.dumps(m, indent=4))
@@ -154,6 +157,7 @@ class Conversation:
             msg_per_weekday[weekdays[i]] = msg_per_weekday.pop(str(i))
         return {'hour': msg_per_hour, 'weekday': msg_per_weekday, 'year': msg_per_year}
 
+
     def get_number_of_messages_per_hour(self):
         msg_per_hour = dict()
         for msg in self.messages:
@@ -189,6 +193,7 @@ class Conversation:
                 msg_per_year[year] += 1
         return msg_per_year
 
+
     def get_most_used_words(self, min_size, number_of_word):
         words_occurence = {}
         for msg in self.messages:
@@ -217,12 +222,52 @@ def create_bar_plot_from_list(l, x_name, y_name, name):
     create_bar_plot(x, x_name, y, y_name, name)
 
 
-#TODO maybe merge all graph in a huge picture
 def create_bar_plot(x, x_name, y, y_name, name):
-    plt.figure(figsize=(16,11))
+    plt.figure(figsize=(16,11), dpi=300)
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
     plot = sns.barplot(x=x_name, y=y_name, data=df, color='#3377ff')
     plot.set_xticklabels(plot.get_xticklabels(), rotation=45, horizontalalignment='right')
+    plot.get_figure().savefig(name)
+
+
+def create_pie_chart_from_list(l, title, name):
+    values = []
+    labels = []
+    for item in l:
+        labels.append(item[0])
+        values.append(item[1])
+    create_pie_chart(values, labels, title, name)
+
+
+def make_autopct(values):
+    def my_autopct(pct):
+        total = sum(values)
+        val = int(round(pct * total / 100.0))
+        s = "{:.2f}%\n({})".format(pct, val)
+        return s
+    return my_autopct
+
+
+def create_pie_chart(values, labels, title, name):
+    plt.figure(figsize=(16,11), dpi=300)
+    max_slices = 7
+    #plt.rcParams.update({'font.size': 8})
+    df = pd.DataFrame({'values': values}, index=labels)
+
+    if len(values) > max_slices + 1 :
+        df2 = df[:max_slices].copy()
+        custom_label = ""
+        total = df.values.sum()
+        for item in df[max_slices:].itertuples():
+            percent = item.values / total * 100.0
+            custom_label +=  '\n  {}: {:.2f}% ({})'.format(item.Index, percent, item.values)
+        new_row = pd.DataFrame({'values' : [df['values'][max_slices:].sum()]}, index=['Other:' + custom_label])
+        df = pd.concat([df2, new_row])
+
+    colors = list(Color("#3377ff").range_to(Color("#e6eeff"),len(df.values)))
+    colors = [color.rgb for color in colors]
+    plot = df.plot.pie(y='values', autopct=make_autopct(values), title=title, legend=None, colors=colors, figsize=(16, 11))
+    plot.yaxis.set_label_text("")
     plot.get_figure().savefig(name, dpi=300)
 
 
@@ -242,8 +287,14 @@ def merge_pictures(images_path):
         merge.paste(img, (0, y_offset))
         y_offset += img.size[1]
     
-    merge.save('merge.jpg')
+    merge.save('merge.png')
 
+
+##TODO Most used sticker/
+# Number of Reaction per person
+# Display number of messages and average per day
+# Most active day
+# Most used word filtered/unfiltered
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -254,16 +305,18 @@ if __name__ == '__main__':
     
     conv = Conversation(args.directory)
     words_occurence = conv.get_most_used_words(3, 100)
-    print(words_occurence)
 
     msg_per_participant = sorted(conv.number_of_messages_per_participants.items(), key=operator.itemgetter(1), reverse=True)
-    #create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of messages', 'msg_per_participants.png')
+    title = "Repartition of the {} messages of this conversation".format(conv.number_of_messages)
+    create_pie_chart_from_list(msg_per_participant, title, 'msg_per_participants_pie.png')
+    create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of messages', 'msg_per_participants_bar.png')
+    
 
     msg_per_participant = sorted(conv.number_of_char_per_participants.items(), key=operator.itemgetter(1), reverse=True)
-    #create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of characters', 'char_per_participants.png')
+    create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of characters', 'char_per_participants.png')
 
     per_year_sorted = sorted(conv.get_number_of_messages_per_year().items())
-    #create_bar_plot_from_list(per_year_sorted, 'Year', 'Number of messages', 'year.png')
+    create_bar_plot_from_list(per_year_sorted, 'Year', 'Number of messages', 'year.png')
 
     ### Week day is a special case 
     per_weekday = conv.get_number_of_messages_per_weekday()
@@ -274,11 +327,10 @@ if __name__ == '__main__':
     create_bar_plot(weekday_ordered, 'Weekday', weekday_value, 'Number of messages', 'weekday.png')
 
     per_hour_sorted = sorted(conv.get_number_of_messages_per_hour().items())
-    #create_bar_plot_from_list(per_hour_sorted, 'Hours', 'Number of messages','hour.png')
+    create_bar_plot_from_list(per_hour_sorted, 'Hours', 'Number of messages','hour.png')
 
-    images_path = ['msg_per_participants.png', 'char_per_participants.png', 'year.png', 'weekday.png', 'hour.png']
-    #merge_pictures(images_path)
+    images_path = ['msg_per_participants_pie.png', 'msg_per_participants_bar.png', 'char_per_participants.png', 'year.png', 'weekday.png', 'hour.png']
+    merge_pictures(images_path)
 
     #print_dict_ordered_reverse(conv.number_of_char_per_participants)
     #print_dict_ordered_reverse(conv.number_of_photos_per_participants)
-    
