@@ -5,12 +5,10 @@ import operator
 import os
 import sys
 import numpy as np
-import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 from colour import Color
 from PIL import Image
-
 
 
 class Message:
@@ -28,10 +26,18 @@ class Message:
 
     def get_message_weekday(self):
         return datetime.datetime.fromtimestamp(int(self.timestamp_ms)/1000.0).weekday()
+    
+    def get_message_day(self):
+        return datetime.datetime.fromtimestamp(int(self.timestamp_ms)/1000.0).day
 
+    def get_message_month(self):
+        return datetime.datetime.fromtimestamp(int(self.timestamp_ms)/1000.0).month
 
     def get_message_year(self):
         return datetime.datetime.fromtimestamp(int(self.timestamp_ms)/1000.0).year
+
+    def get_message_y_m_d(self):
+        return datetime.datetime.fromtimestamp(int(self.timestamp_ms)/1000.0).strftime('%Y-%m-%d')
 
 class Conversation:
     def __init__(self, directory):
@@ -209,24 +215,39 @@ class Conversation:
         return top_words
 
 
+    def get_most_active_days(self):
+        msg_day = {}
+        for msg in self.messages:
+            current_date = msg.get_message_y_m_d()
+            msg_day[current_date] = msg_day.get(current_date, 0) + 1
+        return msg_day
+
+    def get_n_most_active_days(self, value):
+        msg_day = self.get_most_active_days()
+        return sorted(msg_day.items(), key=operator.itemgetter(1), reverse=True)[:value]
+
+            
+
+
 def print_dict_ordered_reverse(d):
     print(sorted(d.items(), key=operator.itemgetter(1), reverse=True))
 
 
-def create_bar_plot_from_list(l, x_name, y_name, name):
+def create_bar_plot_from_list(l, x_name, y_name, title, name):
     x = []
     y = []
     for item in l:
         x.append(item[0])
         y.append(item[1])
-    create_bar_plot(x, x_name, y, y_name, name)
+    create_bar_plot(x, x_name, y, y_name, title, name)
 
 
-def create_bar_plot(x, x_name, y, y_name, name):
-    plt.figure(figsize=(16,11), dpi=300)
+def create_bar_plot(x, x_name, y, y_name, title, name):
+    plt.figure()
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
-    plot = sns.barplot(x=x_name, y=y_name, data=df, color='#3377ff')
+    plot = df.plot.bar(x=x_name, y=y_name, color='#3377ff', figsize=(16,11))
     plot.set_xticklabels(plot.get_xticklabels(), rotation=45, horizontalalignment='right')
+    plt.title(title)
     plot.get_figure().savefig(name)
 
 
@@ -271,7 +292,7 @@ def create_pie_chart(values, labels, title, name):
     plot.get_figure().savefig(name, dpi=300)
 
 
-def merge_pictures(images_path):
+def merge_pictures(images_path, name):
     images = [Image.open(x) for x in images_path]
     total_height = 0
     total_width = 0
@@ -287,13 +308,13 @@ def merge_pictures(images_path):
         merge.paste(img, (0, y_offset))
         y_offset += img.size[1]
     
-    merge.save('merge.png')
+    merge.save(name)
 
 
 ##TODO Most used sticker/
 # Number of Reaction per person
 # Display number of messages and average per day
-# Most active day
+# Top N active day
 # Most used word filtered/unfiltered
 
 if __name__ == '__main__':
@@ -302,10 +323,21 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     print(args.directory)
-    
-    conv = Conversation(args.directory)
-    words_occurence = conv.get_most_used_words(3, 100)
+    print(args.directory.split("/")[-1])
+    output_dir = os.path.join("output", args.directory.split("/")[-1])
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
+    conv = Conversation(args.directory)
+   
+    most_active_days = conv.get_n_most_active_days(10)
+    print(most_active_days)
+    create_bar_plot_from_list(most_active_days, 'Date', 'Number of messages', 'Most active days', 'most_active_days.png')
+
+   
+    #words_occurence = conv.get_most_used_words(3, 100)
+    #print(words_occurence)
+    '''
     msg_per_participant = sorted(conv.number_of_messages_per_participants.items(), key=operator.itemgetter(1), reverse=True)
     title = "Repartition of the {} messages of this conversation".format(conv.number_of_messages)
     create_pie_chart_from_list(msg_per_participant, title, 'msg_per_participants_pie.png')
@@ -330,7 +362,8 @@ if __name__ == '__main__':
     create_bar_plot_from_list(per_hour_sorted, 'Hours', 'Number of messages','hour.png')
 
     images_path = ['msg_per_participants_pie.png', 'msg_per_participants_bar.png', 'char_per_participants.png', 'year.png', 'weekday.png', 'hour.png']
-    merge_pictures(images_path)
+    merge_pictures(images_path, 'merge.png')
 
     #print_dict_ordered_reverse(conv.number_of_char_per_participants)
     #print_dict_ordered_reverse(conv.number_of_photos_per_participants)
+    '''
