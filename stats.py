@@ -5,8 +5,11 @@ import operator
 import os
 import sys
 import numpy as np
-import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+
 from colour import Color
 from PIL import Image
 
@@ -48,6 +51,7 @@ class Conversation:
         self.number_of_messages = self.get_number_of_messages()
         self.number_of_messages_per_participants = self.get_number_of_messages_per_participants()
         self.number_of_char_per_participants = self.get_number_of_char_per_participants()
+        self.number_of_char = self.get_number_of_char()
         self.number_of_photos_per_participants = self.get_number_of_photos_per_participants()
 
     def get_message_files(self):
@@ -64,7 +68,7 @@ class Conversation:
             with open(f, 'r') as conv_file:
                 data = json.load(conv_file)
                 for p in data['participants']:
-                    participants.add((p['name']).encode("iso-8859-1").decode("utf8"))
+                    participants.add((p['name']).encode('iso-8859-1').decode('utf8'))
             return participants
 
     
@@ -98,7 +102,7 @@ class Conversation:
                                     else:
                                         for item in m[m_type]:  # We might have more than one file or one picture
                                             content += item['uri'] + ';'
-                        messages.append(Message(m['sender_name'].encode("iso-8859-1").decode("utf8"), m['timestamp_ms'], m['type'], content_type, content))
+                        messages.append(Message(m['sender_name'].encode('iso-8859-1').decode('utf8'), m['timestamp_ms'], m['type'], content_type, content))
                     except Exception as e:
                         print('Error while parsing message, Error: ', e)
                         print(json.dumps(m, indent=4))
@@ -129,6 +133,11 @@ class Conversation:
             participants_char[msg.sender] += len(msg.content)
         return participants_char
 
+    def get_number_of_char(self):
+        res = 0
+        for p, val in self.number_of_char_per_participants.items():
+            res += val
+        return res
 
     def get_number_of_photos_per_participants(self):
         participants_pics = dict()
@@ -203,7 +212,7 @@ class Conversation:
     def get_most_used_words(self, min_size, number_of_word):
         words_occurence = {}
         for msg in self.messages:
-            msg_txt = msg.content.encode("iso-8859-1").decode("utf8")
+            msg_txt = msg.content.encode('iso-8859-1').decode('utf8')
             words = [x.strip() for x in msg_txt.split(' ')]
             for word in words:
                 word = word.lower()
@@ -215,7 +224,20 @@ class Conversation:
         return top_words
 
 
-    def get_most_active_days(self):
+    def get_message_per_day_as_2d_array_per_year(self):
+        msg_per_year = {}
+        for msg in self.messages:
+            current_month = msg.get_message_month()
+            current_day = msg.get_message_day()
+            current_year = msg.get_message_year()
+            if current_year not in msg_per_year:
+                #array of 31 by 12 (day and months)
+                msg_per_year[current_year] = [[0 for x in range(31)] for y in range(12)]
+            #Minus -1 since array index are 0 based
+            msg_per_year[current_year][current_month - 1][current_day - 1] += 1
+        return msg_per_year
+
+    def get_message_per_day_as_dict(self):
         msg_day = {}
         for msg in self.messages:
             current_date = msg.get_message_y_m_d()
@@ -223,7 +245,7 @@ class Conversation:
         return msg_day
 
     def get_n_most_active_days(self, value):
-        msg_day = self.get_most_active_days()
+        msg_day = self.get_message_per_day_as_dict()
         return sorted(msg_day.items(), key=operator.itemgetter(1), reverse=True)[:value]
 
             
@@ -243,12 +265,11 @@ def create_bar_plot_from_list(l, x_name, y_name, title, name):
 
 
 def create_bar_plot(x, x_name, y, y_name, title, name):
-    plt.figure()
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
     plot = df.plot.bar(x=x_name, y=y_name, color='#3377ff', figsize=(16,11))
     plot.set_xticklabels(plot.get_xticklabels(), rotation=45, horizontalalignment='right')
     plt.title(title)
-    plot.get_figure().savefig(name)
+    plot.get_figure().savefig(name, dpi=300)
 
 
 def create_pie_chart_from_list(l, title, name):
@@ -258,6 +279,25 @@ def create_pie_chart_from_list(l, title, name):
         labels.append(item[0])
         values.append(item[1])
     create_pie_chart(values, labels, title, name)
+
+#Data should be a 2D array of month (y axes) and day (x axes)
+def create_heatmap(data, title, name):
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    days = list(range(1, 32))
+    
+    #Create a custom color map because out data are not linear
+    hc = ['#ffffff', '#bad6eb', '#89bedc', '#539ecd', '#2b7bba', '#052647']
+    th = [0, 0.001, 0.25, 0.5, 0.75, 1]
+    cdict = NonLinCdict(th, hc)
+    cm = matplotlib.colors.LinearSegmentedColormap('custom_blue', cdict)
+
+    fig, ax = plt.subplots(figsize=(16,8), dpi=300)
+    df = pd.DataFrame(data, index=months, columns=days)
+    plt.tight_layout()
+    ax = sns.heatmap(df, cmap=cm, annot=True, fmt='d', linewidths=.7, square=True, cbar_kws={'label': 'Number of messages'}, ax=ax)
+    ax.figure.axes[-1].yaxis.label.set_size(20)
+    ax.set_title(title, pad=50, fontsize=16)
+    ax.get_figure().savefig(name)
 
 
 def make_autopct(values):
@@ -299,6 +339,7 @@ def merge_pictures(images_path, name):
 
     for img in images:
         size = img.size
+        print(img.size)
         total_height += size[1]
         total_width = max(size[0], total_width)
 
@@ -311,11 +352,72 @@ def merge_pictures(images_path, name):
     merge.save(name)
 
 
-##TODO Most used sticker/
-# Number of Reaction per person
-# Display number of messages and average per day
-# Top N active day
-# Most used word filtered/unfiltered
+def NonLinCdict(steps, hexcol_array):
+    cdict = {'red': (), 'green': (), 'blue': ()}
+    for s, hexcol in zip(steps, hexcol_array):
+        rgb = matplotlib.colors.hex2color(hexcol)
+        cdict['red'] = cdict['red'] + ((s, rgb[0], rgb[0]),)
+        cdict['green'] = cdict['green'] + ((s, rgb[1], rgb[1]),)
+        cdict['blue'] = cdict['blue'] + ((s, rgb[2], rgb[2]),)
+    return cdict
+
+
+def export_all(conv, output_dir):
+    exported_images = []
+    
+    # Message heatmap per year
+    msg_day = conv.get_message_per_day_as_2d_array_per_year()
+    for year in msg_day:
+        fig_name = output_dir + '/heatmap' + str(year) + '.png'
+        create_heatmap(msg_day[year], 'Number of messages per day in ' + str(year), fig_name)
+        exported_images.append(fig_name)
+
+    # Message per participants pie and barplot
+    title = 'Repartition of the {} messages of this conversation'.format(conv.number_of_messages)
+    fig_name = output_dir + '/msg_per_participants_pie.png'
+    msg_per_participant = sorted(conv.number_of_messages_per_participants.items(), key=operator.itemgetter(1), reverse=True)
+    create_pie_chart_from_list(msg_per_participant, title, fig_name)
+    exported_images.append(fig_name)
+
+
+    fig_name = output_dir + '/msg_per_participants_bar.png'
+    create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of messages', title, fig_name)
+    exported_images.append(fig_name)
+
+    # Char per participants
+    title = 'Repartition of the {} characters of this conversation'.format(conv.number_of_char)
+    fig_name = output_dir + '/char_per_participants.png'
+    char_per_participant = sorted(conv.number_of_char_per_participants.items(), key=operator.itemgetter(1), reverse=True)
+    create_bar_plot_from_list(char_per_participant, 'Participant', 'Number of characters', title, fig_name)
+    exported_images.append(fig_name)
+
+    # Year
+    title = 'Number of messages per year'
+    fig_name = output_dir + '/year.png'
+    per_year_sorted = sorted(conv.get_number_of_messages_per_year().items())
+    create_bar_plot_from_list(per_year_sorted, 'Year', 'Number of messages', title, fig_name)
+    exported_images.append(fig_name)
+
+    # Weekday is a special case 
+    title = 'Number of messages per weekday'
+    fig_name = output_dir + '/weekday.png'
+    per_weekday = conv.get_number_of_messages_per_weekday()
+    weekday_ordered = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    weekday_value = []
+    for day in weekday_ordered:
+        weekday_value.append(per_weekday[day])
+    create_bar_plot(weekday_ordered, 'Weekday', weekday_value, 'Number of messages', title, fig_name)
+    exported_images.append(fig_name)
+    
+    # Hour
+    title = 'Number of messages per hour'
+    fig_name = output_dir + '/hour.png'
+    per_hour_sorted = sorted(conv.get_number_of_messages_per_hour().items())
+    create_bar_plot_from_list(per_hour_sorted, 'Hours', 'Number of messages', title, fig_name)
+    exported_images.append(fig_name)
+
+    return exported_images
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -323,46 +425,24 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     print(args.directory)
-    print(args.directory.split("/")[-1])
-    output_dir = os.path.join("output", args.directory.split("/")[-1])
+    print(args.directory.split('/')[-1])
+
+    output_dir = os.path.join('output', args.directory.split('/')[-1])
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     conv = Conversation(args.directory)
-   
-    most_active_days = conv.get_n_most_active_days(10)
-    print(most_active_days)
-    create_bar_plot_from_list(most_active_days, 'Date', 'Number of messages', 'Most active days', 'most_active_days.png')
+    exported_path = export_all(conv, output_dir)
+    print(exported_path)
 
-   
-    #words_occurence = conv.get_most_used_words(3, 100)
-    #print(words_occurence)
+    #exported_path = ['output/adriengarin_7dlhf0cpza/heatmap2017.png', 'output/adriengarin_7dlhf0cpza/heatmap2016.png', 'output/adriengarin_7dlhf0cpza/msg_per_participants_bar.png', 'output/adriengarin_7dlhf0cpza/char_per_participants.png', 'output/adriengarin_7dlhf0cpza/year.png', 'output/adriengarin_7dlhf0cpza/weekday.png', 'output/adriengarin_7dlhf0cpza/hour.png']
+    merge_pictures(exported_path, os.path.join(output_dir, 'merge.png'))
+
+
     '''
-    msg_per_participant = sorted(conv.number_of_messages_per_participants.items(), key=operator.itemgetter(1), reverse=True)
-    title = "Repartition of the {} messages of this conversation".format(conv.number_of_messages)
-    create_pie_chart_from_list(msg_per_participant, title, 'msg_per_participants_pie.png')
-    create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of messages', 'msg_per_participants_bar.png')
-    
 
-    msg_per_participant = sorted(conv.number_of_char_per_participants.items(), key=operator.itemgetter(1), reverse=True)
-    create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of characters', 'char_per_participants.png')
-
-    per_year_sorted = sorted(conv.get_number_of_messages_per_year().items())
-    create_bar_plot_from_list(per_year_sorted, 'Year', 'Number of messages', 'year.png')
-
-    ### Week day is a special case 
-    per_weekday = conv.get_number_of_messages_per_weekday()
-    weekday_ordered = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    weekday_value = []
-    for day in weekday_ordered:
-        weekday_value.append(per_weekday[day])
-    create_bar_plot(weekday_ordered, 'Weekday', weekday_value, 'Number of messages', 'weekday.png')
-
-    per_hour_sorted = sorted(conv.get_number_of_messages_per_hour().items())
-    create_bar_plot_from_list(per_hour_sorted, 'Hours', 'Number of messages','hour.png')
 
     images_path = ['msg_per_participants_pie.png', 'msg_per_participants_bar.png', 'char_per_participants.png', 'year.png', 'weekday.png', 'hour.png']
-    merge_pictures(images_path, 'merge.png')
 
     #print_dict_ordered_reverse(conv.number_of_char_per_participants)
     #print_dict_ordered_reverse(conv.number_of_photos_per_participants)
