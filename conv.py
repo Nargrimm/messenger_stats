@@ -14,7 +14,9 @@ class Conversation:
         self.number_of_messages_per_participants = self.get_number_of_messages_per_participants()
         self.number_of_char_per_participants = self.get_number_of_char_per_participants()
         self.number_of_char = self.get_number_of_char()
-        self.number_of_photos_per_participants = self.get_number_of_photos_per_participants()
+        self.number_of_pics_per_participants = self.get_number_of_pics_per_participants()
+        self.number_of_pics = self.get_number_of_pics()
+
 
     def get_message_files(self):
         files = []
@@ -103,7 +105,7 @@ class Conversation:
         return res
 
 
-    def get_number_of_photos_per_participants(self):
+    def get_number_of_pics_per_participants(self):
         participants_pics = dict()
         for p in self.participants:
             participants_pics[p] = 0
@@ -112,6 +114,10 @@ class Conversation:
                 continue
             participants_pics[msg.sender] += len(msg.content.split(';')) - 1 
         return participants_pics
+
+    def get_number_of_pics(self):
+        return sum(self.number_of_pics_per_participants.values())
+
 
     #Return a dict with hour, weekday and year repartition
     #We do this in a single iteration which is faster than calling the 3 functions 
