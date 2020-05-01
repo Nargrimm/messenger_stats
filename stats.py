@@ -96,24 +96,19 @@ def make_autopct(values):
     return my_autopct
 
 
-
-
 def merge_pictures(images_path, name):
-    images = [Image.open(x) for x in images_path]
     total_height = 0
     total_width = 0
-
-    for img in images:
-        size = img.size
-        total_height += size[1]
-        total_width = max(size[0], total_width)
-
-    merge = Image.new('RGB', (total_width, total_height))
     y_offset = 0
-    for img in images:
-        merge.paste(img, (0, y_offset))
-        y_offset += img.size[1]
-    
+
+    for img in images_path:
+        with Image.open(img) as current_img:
+            if y_offset == 0:
+                total_width = current_img.size[0]
+                total_height = len(images_path) * current_img.size[1]
+                merge = Image.new('RGB', (total_width, total_height))
+            merge.paste(current_img, (0, y_offset))
+            y_offset += current_img.size[1]
     merge.save(name)
 
 
@@ -136,7 +131,7 @@ def export_all(conv, output_dir):
         number_of_messages = np.sum(msg_day[year])
         number_of_days = (datetime.date(year, 12, 31)- datetime.date(year, 1, 1)).days + 1
         fig_name = output_dir + '/heatmap' + str(year) + '.png'
-        title = 'Number of messages per day in {}.\n{} messages this year (avg: {:.2f}/day)'.format(str(year), number_of_messages, number_of_messages / number_of_days)
+        title = 'Number of messages per day in {}\n{} messages this year (avg: {:.2f}/day)'.format(str(year), number_of_messages, number_of_messages / number_of_days)
         create_heatmap(msg_day[year], title, fig_name)
         exported_images.append(fig_name)
     #We want the heatmatp to be in the right order for the merge
@@ -163,8 +158,12 @@ def export_all(conv, output_dir):
 
     # Pics per participants
     title = 'Repartition of the {} sent pictures of this conversation'.format(conv.number_of_pics)
-    fig_name = output_dir + '/pics_per_participants.png'
+    fig_name = output_dir + '/pics_per_participants_pie.png'
     pics_per_participant = sorted(conv.number_of_pics_per_participants.items(), key=operator.itemgetter(1), reverse=True)
+    create_pie_chart_from_list(pics_per_participant, title, fig_name)
+    exported_images.append(fig_name)
+
+    fig_name = output_dir + '/pics_per_participants_bar.png'
     create_bar_plot_from_list(pics_per_participant, 'Participant', 'Number of pictures', title, fig_name)
     exported_images.append(fig_name)
 
