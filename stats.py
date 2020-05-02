@@ -11,7 +11,8 @@ import seaborn as sns
 
 from colour import Color
 from PIL import Image
-from conv import Conversation 
+from conv import Conversation
+from matplotlib.offsetbox import OffsetImage,AnnotationBbox
 
 def print_dict_ordered_reverse(d):
     print(sorted(d.items(), key=operator.itemgetter(1), reverse=True))
@@ -33,6 +34,30 @@ def create_bar_plot(x, x_name, y, y_name, title, name):
     plt.title(title, fontsize=16)
     plot.get_figure().savefig(name, dpi=300)
 
+
+def offset_image(coord, name, ax):
+    img = plt.imread(name)
+    im = OffsetImage(img, zoom=0.3)
+    im.image.axes = ax
+
+    ab = AnnotationBbox(im, (coord, 0),  xybox=(0., -16.), frameon=False,
+                        xycoords='data',  boxcoords="offset points", pad=0)
+
+    ax.add_artist(ab)
+
+
+def create_bar_plot_emoji(x, x_name, y, y_name, title, name, emoji_dir):
+    fig, ax = plt.subplots()
+    df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
+    ax = df.plot.bar(x=x_name, y=y_name, color='#3377ff', figsize=(16,11))
+    ax.tick_params(axis='x', which='major', pad=28)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=0, horizontalalignment='center')
+    #hide text
+    #plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+    for index, emoji_name in enumerate(x):
+        emoji_path = (emoji_dir + '/{}.png').format(emoji_name)
+        offset_image(index, emoji_path, ax)
+    ax.get_figure().savefig(name, dpi=300)
 
 def create_pie_chart_from_list(l, title, name):
     values = []
@@ -81,6 +106,29 @@ def create_heatmap(data, title, name):
     fig, ax = plt.subplots(figsize=(16,8), dpi=300)
     df = pd.DataFrame(data, index=months, columns=days)
     plt.tight_layout()
+    ax = sns.heatmap(df, cmap=cm, annot=True, fmt='d', linewidths=.7, square=True, cbar_kws={'label': 'Number of messages'}, ax=ax)
+    ax.figure.axes[-1].yaxis.label.set_size(20)
+    ax.set_title(title, pad=50, fontsize=16)
+    ax.get_figure().savefig(name)
+
+
+#This allow to create a single haetmap for all the messages but the result doesn't look that good
+def create_heatmap_full_years(data, title, name):
+    y = []
+    x = list(range(1, 32))
+    data_2d = []
+    data_sorted = sorted(data.items(), key=lambda x: datetime.datetime.strptime(x[0], "%m-%Y"))
+    for item in data_sorted:
+        y.append(item[0])
+        data_2d.append(item[1])
+    #Create a custom color map because out data are not linear
+    hc = ['#ffffff', '#bad6eb', '#89bedc', '#539ecd', '#2b7bba', '#052647']
+    th = [0, 0.001, 0.25, 0.5, 0.75, 1]
+    cdict = NonLinCdict(th, hc)
+    cm = matplotlib.colors.LinearSegmentedColormap('custom_blue', cdict)
+    fig, ax = plt.subplots(figsize=(16,8 * (len(data_sorted) / 12)), dpi=300)
+    df = pd.DataFrame(data_2d, index=y, columns=x)
+    #plt.tight_layout()
     ax = sns.heatmap(df, cmap=cm, annot=True, fmt='d', linewidths=.7, square=True, cbar_kws={'label': 'Number of messages'}, ax=ax)
     ax.figure.axes[-1].yaxis.label.set_size(20)
     ax.set_title(title, pad=50, fontsize=16)
@@ -209,6 +257,23 @@ if __name__ == '__main__':
 
     conv = Conversation(args.directory)
 
+    '''
+    wow = "\u00f0\u009f\u0098\u00ae".encode('iso-8859-1').decode('utf8')
+    love = "\u00f0\u009f\u0098\u008d".encode('iso-8859-1').decode('utf8')
+    sad = "\u00f0\u009f\u0098\u00a2".encode('iso-8859-1').decode('utf8')
+    thumb = "\u00f0\u009f\u0091\u008d".encode('iso-8859-1').decode('utf8')
+    laugh = "\u00f0\u009f\u0098\u0086".encode('iso-8859-1').decode('utf8')
+
+    x = ['wow', 'love', 'cry', 'laugh']
+    y = [10, 5, 2, 15]
+
+    x_name = "reactions"
+    y_name = "number"
+    title = "num of reactions"
+    name = "num_reaction2.png"
+    create_bar_plot_emoji(x, x_name, y, y_name, "emoji", "lol.png", "./emoji/")
+    '''
+    
     exported_path = export_all(conv, output_dir)
     merge_pictures(exported_path, os.path.join(output_dir, 'merge.png'))
 

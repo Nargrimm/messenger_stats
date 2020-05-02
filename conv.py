@@ -119,8 +119,8 @@ class Conversation:
         return sum(self.number_of_pics_per_participants.values())
 
 
-    #Return a dict with hour, weekday and year repartition
-    #We do this in a single iteration which is faster than calling the 3 functions 
+#Return a dict with hour, weekday and year repartition
+#We do this in a single iteration which is faster than calling the 3 functions 
     def get_message_time_repartition(self):
         msg_per_hour = dict()
         msg_per_weekday = {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0}
@@ -207,6 +207,21 @@ class Conversation:
             msg_per_year[current_year][current_month - 1][current_day - 1] += 1
         return msg_per_year
 
+
+#This allow to create a single haetmap for all the messages but the result doesn't look that good
+    def get_message_per_day(self):
+        msg_per_day = {}
+        for msg in self.messages:
+            current_month = msg.get_message_month()
+            current_day = msg.get_message_day()
+            current_year = msg.get_message_year()
+            current_month_year = str(current_month) + '-' + str(current_year)
+            if current_month_year not in msg_per_day:
+                #array of 31 by 12 (day and months)
+                msg_per_day[current_month_year] = [0 for x in range(31)]
+            #Minus -1 since array index are 0 based
+            msg_per_day[current_month_year][current_day - 1] += 1
+        return msg_per_day
 
     def get_message_per_day_as_dict(self):
         msg_day = {}
