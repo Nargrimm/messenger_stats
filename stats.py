@@ -33,6 +33,7 @@ def create_bar_plot(x, x_name, y, y_name, title, name):
     plot.set_xticklabels(plot.get_xticklabels(), rotation=45, horizontalalignment='right')
     plt.title(title, fontsize=16)
     plot.get_figure().savefig(name, dpi=300)
+    plt.cla()
 
 
 def offset_image(coord, name, ax):
@@ -47,17 +48,44 @@ def offset_image(coord, name, ax):
 
 
 def create_bar_plot_emoji(x, x_name, y, y_name, title, name, emoji_dir):
-    fig, ax = plt.subplots()
+    #This is hacky but cannot pad the x title otherwise
+    x_name = "\n\n" + x_name
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
     ax = df.plot.bar(x=x_name, y=y_name, color='#3377ff', figsize=(16,11))
-    ax.tick_params(axis='x', which='major', pad=28)
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=0, horizontalalignment='center')
-    #hide text
-    #plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+    #Hide text
+    ax.get_xaxis().set_ticklabels([])
     for index, emoji_name in enumerate(x):
         emoji_path = (emoji_dir + '/{}.png').format(emoji_name)
         offset_image(index, emoji_path, ax)
+    plt.title(title, fontsize=16)
     ax.get_figure().savefig(name, dpi=300)
+    plt.cla()
+
+
+def offset_image_stickers(coord, name, ax):
+    img = plt.imread(name)
+    im = OffsetImage(img, zoom=0.1)
+    im.image.axes = ax
+
+    ab = AnnotationBbox(im, (coord, 0),  xybox=(0., -36.), frameon=False,
+                        xycoords='data',  boxcoords="offset points", pad=0)
+
+    ax.add_artist(ab)
+
+def create_bar_plot_stickers(x, x_name, y, y_name, title, name):
+    #This is hacky but cannot pad the x title otherwise
+    x_name = "\n\n\n\n\n" + x_name
+    df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
+    ax = df.plot.bar(x=x_name, y=y_name, color='#3377ff', figsize=(16,11))
+    #Hide text
+    ax.get_xaxis().set_ticklabels([])
+    for index, sticker in enumerate(x):
+        sticker_path = ('../{}').format(sticker[:-1])
+        offset_image_stickers(index, sticker_path, ax)
+    plt.title(title, fontsize=16)
+    ax.get_figure().savefig(name, dpi=300)
+    plt.cla()
+
 
 def create_pie_chart_from_list(l, title, name):
     values = []
@@ -90,6 +118,7 @@ def create_pie_chart(values, labels, title, name):
     plt.title(title, fontsize=16)
     plot.yaxis.set_label_text("")
     plot.get_figure().savefig(name, dpi=300)
+    plt.cla()
 
 
 #Data should be a 2D array of month (y axes) and day (x axes)
@@ -110,6 +139,7 @@ def create_heatmap(data, title, name):
     ax.figure.axes[-1].yaxis.label.set_size(20)
     ax.set_title(title, pad=50, fontsize=16)
     ax.get_figure().savefig(name)
+    plt.cla()
 
 
 #This allow to create a single haetmap for all the messages but the result doesn't look that good
@@ -145,16 +175,22 @@ def make_autopct(values):
 
 
 def merge_pictures(images_path, name):
+    if len(images_path) == 0:
+        return
     total_height = 0
     total_width = 0
     y_offset = 0
+    #First we create the merge picture
+    for img in images_path:
+        current_img = Image.open(img)
+        total_width = max(current_img.size[0], total_width)
+        total_height += current_img.size[1]
+        current_img.close()
+    merge = Image.new('RGB', (total_width, total_height))
 
+    #Then we merge all the image, We do this in two loops to avoid high memory consumption of opening all the images at the same time
     for img in images_path:
         with Image.open(img) as current_img:
-            if y_offset == 0:
-                total_width = current_img.size[0]
-                total_height = len(images_path) * current_img.size[1]
-                merge = Image.new('RGB', (total_width, total_height))
             merge.paste(current_img, (0, y_offset))
             y_offset += current_img.size[1]
     merge.save(name)
@@ -172,6 +208,7 @@ def NonLinCdict(steps, hexcol_array):
 
 def export_all(conv, output_dir):
     exported_images = []
+    fig, ax = plt.subplots()
     
     # Message heatmap per year
     msg_day = conv.get_message_per_day_as_2d_array_per_year()
@@ -215,6 +252,7 @@ def export_all(conv, output_dir):
     create_bar_plot_from_list(pics_per_participant, 'Participant', 'Number of pictures', title, fig_name)
     exported_images.append(fig_name)
 
+
     # Year
     title = 'Number of messages per year'
     fig_name = output_dir + '/year.png'
@@ -240,6 +278,35 @@ def export_all(conv, output_dir):
     create_bar_plot_from_list(per_hour_sorted, 'Hours', 'Number of messages', title, fig_name)
     exported_images.append(fig_name)
 
+    #Stickers
+    sticker_shown = 8
+    title = 'Repartition of the {} most sent stickers of this conversation'.format(sticker_shown)
+    fig_name = output_dir + '/sticker.png'
+    sticker = conv.get_sticker_repartition()
+    sticker_sorted = sorted(sticker.items(), key=operator.itemgetter(1), reverse=True)
+    x = []
+    y = []
+    for item in sticker_sorted[:sticker_shown]:
+        x.append(item[0])
+        y.append(item[1])
+    create_bar_plot_stickers(x, "Stickers", y, "Number of stickers", title, fig_name)
+    exported_images.append(fig_name)
+
+
+    #Reactions
+    fig_name = output_dir + '/reactions.png'
+    reaction = conv.get_reactions_repartition()
+    reaction_sorted = sorted(reaction.items(), key=operator.itemgetter(1), reverse=True)
+    x = []
+    y = []
+    title = 'Repartition of the {} sent reactions of this conversation'.format(sum(y))
+    for item in reaction_sorted:
+        x.append(item[0])
+        y.append(item[1])
+    create_bar_plot_emoji(x, "Reactions", y, "Number of reactions", title, fig_name, "./emoji/")
+    exported_images.append(fig_name)
+
+
     return exported_images
 
 
@@ -256,25 +323,6 @@ if __name__ == '__main__':
         os.makedirs(output_dir)
 
     conv = Conversation(args.directory)
-
-    '''
-    wow = "\u00f0\u009f\u0098\u00ae".encode('iso-8859-1').decode('utf8')
-    love = "\u00f0\u009f\u0098\u008d".encode('iso-8859-1').decode('utf8')
-    sad = "\u00f0\u009f\u0098\u00a2".encode('iso-8859-1').decode('utf8')
-    thumb = "\u00f0\u009f\u0091\u008d".encode('iso-8859-1').decode('utf8')
-    laugh = "\u00f0\u009f\u0098\u0086".encode('iso-8859-1').decode('utf8')
-
-    x = ['wow', 'love', 'cry', 'laugh']
-    y = [10, 5, 2, 15]
-
-    x_name = "reactions"
-    y_name = "number"
-    title = "num of reactions"
-    name = "num_reaction2.png"
-    create_bar_plot_emoji(x, x_name, y, y_name, "emoji", "lol.png", "./emoji/")
-    '''
     
     exported_path = export_all(conv, output_dir)
     merge_pictures(exported_path, os.path.join(output_dir, 'merge.png'))
-
-  

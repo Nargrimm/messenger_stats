@@ -52,6 +52,7 @@ class Conversation:
                 data = json.load(conv_file)
                 message_type = ['photos', 'files', 'sticker']
                 for m in data['messages']:
+                    reactions = {}
                     try:
                         if 'content' in m:
                             content_type = 'message'
@@ -66,7 +67,10 @@ class Conversation:
                                     else:
                                         for item in m[m_type]:  # We might have more than one file or one picture
                                             content += item['uri'] + ';'
-                        messages.append(Message(m['sender_name'].encode('iso-8859-1').decode('utf8'), m['timestamp_ms'], m['type'], content_type, content))
+                        if 'reactions' in m:
+                            for item in m['reactions']:
+                                reactions[item['actor']] = item['reaction']
+                        messages.append(Message(m['sender_name'].encode('iso-8859-1').decode('utf8'), m['timestamp_ms'], m['type'], content_type, content, reactions))
                     except Exception as e:
                         print('Error while parsing message, Error: ', e)
                         print(json.dumps(m, indent=4))
@@ -114,6 +118,7 @@ class Conversation:
                 continue
             participants_pics[msg.sender] += len(msg.content.split(';')) - 1 
         return participants_pics
+
 
     def get_number_of_pics(self):
         return sum(self.number_of_pics_per_participants.values())
@@ -223,6 +228,7 @@ class Conversation:
             msg_per_day[current_month_year][current_day - 1] += 1
         return msg_per_day
 
+
     def get_message_per_day_as_dict(self):
         msg_day = {}
         for msg in self.messages:
@@ -244,3 +250,31 @@ class Conversation:
             if word in msg.content.lower():
                 res += 1
         return res
+
+
+    def get_sticker_repartition(self):
+        stickers = {}
+        for msg in self.messages:
+            if msg.content_type != 'sticker':
+                continue
+            stickers[msg.content] = stickers.get(msg.content, 0) + 1
+        return stickers
+
+    def get_reactions_repartition(self):
+        known_reac = {
+            "\u00f0\u009f\u0098\u00ae" : "surprised",
+            "\u00f0\u009f\u0098\u008d" : "love",
+            "\u00f0\u009f\u0098\u00a2" : "sad",
+            "\u00f0\u009f\u0091\u008d" : "thumbs_up",
+            "\u00f0\u009f\u0091\u008e" : "thumbs_down",
+            "\u00f0\u009f\u0098\u0086" : "laugh",
+            "\u00f0\u009f\u0098\u00a0" : "angry",
+            "\u00e2\u009d\u00a4" : "heart"
+        }
+        found_reactions = {}
+
+        for msg in self.messages:
+            if len(msg.reactions) > 0 :
+                for item in msg.reactions.items():
+                    found_reactions[known_reac[item[1]]] = found_reactions.get(known_reac[item[1]], 0) + 1
+        return found_reactions
