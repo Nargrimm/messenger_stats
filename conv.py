@@ -20,7 +20,7 @@ class Conversation:
 
     def get_message_files(self):
         files = []
-        for r, d, f in os.walk(self.directory):
+        for r, d, f in os.walk(os.path.expanduser(self.directory)):
             for item in f:
                 files.append(os.path.join(r, item))
         return files

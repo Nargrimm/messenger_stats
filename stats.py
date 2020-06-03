@@ -72,7 +72,7 @@ def offset_image_stickers(coord, name, ax):
 
     ax.add_artist(ab)
 
-def create_bar_plot_stickers(x, x_name, y, y_name, title, name):
+def create_bar_plot_stickers(x, x_name, y, y_name, title, name, sticker_dir):
     #This is hacky but cannot pad the x title otherwise
     x_name = "\n\n\n\n\n" + x_name
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
@@ -80,7 +80,7 @@ def create_bar_plot_stickers(x, x_name, y, y_name, title, name):
     #Hide text
     ax.get_xaxis().set_ticklabels([])
     for index, sticker in enumerate(x):
-        sticker_path = ('../{}').format(sticker[:-1])
+        sticker_path = (os.path.join(sticker_dir, os.path.basename(sticker[:-1])))
         offset_image_stickers(index, sticker_path, ax)
     plt.title(title, fontsize=16)
     ax.get_figure().savefig(name, dpi=300)
@@ -206,7 +206,7 @@ def NonLinCdict(steps, hexcol_array):
     return cdict
 
 
-def export_all(conv, output_dir):
+def export_all(conv, sticker_dir, output_dir):
     exported_images = []
     fig, ax = plt.subplots()
     
@@ -229,7 +229,6 @@ def export_all(conv, output_dir):
     create_pie_chart_from_list(msg_per_participant, title, fig_name)
     exported_images.append(fig_name)
 
-
     fig_name = output_dir + '/msg_per_participants_bar.png'
     create_bar_plot_from_list(msg_per_participant, 'Participant', 'Number of messages', title, fig_name)
     exported_images.append(fig_name)
@@ -251,7 +250,6 @@ def export_all(conv, output_dir):
     fig_name = output_dir + '/pics_per_participants_bar.png'
     create_bar_plot_from_list(pics_per_participant, 'Participant', 'Number of pictures', title, fig_name)
     exported_images.append(fig_name)
-
 
     # Year
     title = 'Number of messages per year'
@@ -289,7 +287,7 @@ def export_all(conv, output_dir):
     for item in sticker_sorted[:sticker_shown]:
         x.append(item[0])
         y.append(item[1])
-    create_bar_plot_stickers(x, "Stickers", y, "Number of stickers", title, fig_name)
+    create_bar_plot_stickers(x, "Stickers", y, "Number of stickers", title, fig_name, sticker_dir)
     exported_images.append(fig_name)
 
 
@@ -312,17 +310,22 @@ def export_all(conv, output_dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--directory', type=str, required=True, help='Directory with the messages files')
+    parser.add_argument('-c', '--conversation_path', type=str, required=True, help='The name of the directory with the json messages files for the conversation you want.\
+        Be careful for each conversation there is two directory, one with the json files of the conversation (the one we want here) and one with shared files. Ex: ~/messages/inbox/johndoe_1a2b3c4d')
+    parser.add_argument('-s', '--sticker', type=str, required=True, help='path to the "stickers_used" folder (within your message folder)')
+
 
     args = parser.parse_args()
-    print(args.directory)
-    print(args.directory.split('/')[-1])
 
-    output_dir = os.path.join('output', args.directory.split('/')[-1])
+    if  args.conversation_path.endswith('/'):
+        args.conversation_path = args.conversation_path[:-1]
+    output_dir = os.path.join('output', args.conversation_path.split('/')[-1])
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    conv = Conversation(args.directory)
+    print(args.conversation_path)
+    conv = Conversation(args.conversation_path)
     
-    exported_path = export_all(conv, output_dir)
+    exported_path = export_all(conv, os.path.expanduser(args.sticker), output_dir)
     merge_pictures(exported_path, os.path.join(output_dir, 'merge.png'))
