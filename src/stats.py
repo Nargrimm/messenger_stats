@@ -101,7 +101,6 @@ def create_pie_chart_from_list(l, title, name):
 def create_pie_chart(values, labels, title, name):
     plt.figure(figsize=(16,11), dpi=300)
     max_slices = 7
-    #plt.rcParams.update({'font.size': 8})
     df = pd.DataFrame({'values': values}, index=labels)
 
     if len(values) > max_slices + 1 :
@@ -211,7 +210,7 @@ def NonLinCdict(steps, hexcol_array):
 def export_all(conv, sticker_dir, output_dir):
     exported_images = []
     fig, ax = plt.subplots()
-    
+
     # Message heatmap per year
     msg_day = conv.get_message_per_day_as_2d_array_per_year()
     for year in msg_day:
