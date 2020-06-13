@@ -42,7 +42,8 @@ The output will consist of several PNG files:
 
 * **Characters per participants**: A bar chart representing the number of characters sent per participant. This data can be uselful to correlate with the messages per participant
 
-![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/char_per_participants.png)
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/char_per_participants_pie.png)
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/char_per_participants_bar.png)
 
 
 * **Pictures per participants**: A pie and a bar chart representing the number of pictures sent per participant.  If there is more than a certain number of participants in the conversation we aggregate the one who sent the least messages in the pie chart
