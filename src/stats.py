@@ -248,8 +248,12 @@ def export_all(conv, sticker_dir, output_dir):
 
     # Char per participants
     title = 'Repartition of the {} characters of this conversation'.format(conv.number_of_char)
-    fig_name = output_dir + '/char_per_participants.png'
+    fig_name = output_dir + '/char_per_participants_pie.png'
     char_per_participant = sorted(conv.number_of_char_per_participants.items(), key=operator.itemgetter(1), reverse=True)
+    create_pie_chart_from_list(char_per_participant, title, fig_name)
+    exported_images.append(fig_name)
+
+    fig_name = output_dir + '/char_per_participants_bar.png'
     create_bar_plot_from_list(char_per_participant, 'Participant', 'Number of characters', title, fig_name)
     exported_images.append(fig_name)
 
