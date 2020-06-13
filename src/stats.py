@@ -30,6 +30,8 @@ def create_bar_plot_from_list(l, x_name, y_name, title, name):
 
 
 def create_bar_plot(x, x_name, y, y_name, title, name):
+    if len(x) == 0:
+        return
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
     plot = df.plot.bar(x=x_name, y=y_name, color='#3377ff', figsize=(16,11))
     plot.set_xticklabels(plot.get_xticklabels(), rotation=45, horizontalalignment='right')
@@ -50,6 +52,8 @@ def offset_image(coord, name, ax):
 
 
 def create_bar_plot_emoji(x, x_name, y, y_name, title, name, emoji_dir):
+    if len(x) == 0:
+        return
     #This is hacky but cannot pad the x title otherwise
     x_name = "\n\n" + x_name
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
@@ -75,6 +79,8 @@ def offset_image_stickers(coord, name, ax):
     ax.add_artist(ab)
 
 def create_bar_plot_stickers(x, x_name, y, y_name, title, name, sticker_dir):
+    if len(x) == 0:
+        return
     #This is hacky but cannot pad the x title otherwise
     x_name = "\n\n\n\n\n" + x_name
     df = pd.DataFrame(list(zip(x, y)), columns=(x_name, y_name))
@@ -183,7 +189,10 @@ def merge_pictures(images_path, name):
     y_offset = 0
     #First we create the merge picture
     for img in images_path:
-        current_img = Image.open(img)
+        try:
+            current_img = Image.open(img)
+        except (FileNotFoundError):
+            continue
         total_width = max(current_img.size[0], total_width)
         total_height += current_img.size[1]
         current_img.close()
@@ -191,9 +200,12 @@ def merge_pictures(images_path, name):
 
     #Then we merge all the image, We do this in two loops to avoid high memory consumption of opening all the images at the same time
     for img in images_path:
-        with Image.open(img) as current_img:
-            merge.paste(current_img, (0, y_offset))
-            y_offset += current_img.size[1]
+        try :
+            with Image.open(img) as current_img:
+                merge.paste(current_img, (0, y_offset))
+                y_offset += current_img.size[1]
+        except (FileNotFoundError):
+            continue
     merge.save(name)
 
 
@@ -279,31 +291,34 @@ def export_all(conv, sticker_dir, output_dir):
 
     #Stickers
     sticker_shown = 8
-    title = 'Repartition of the {} most sent stickers of this conversation'.format(sticker_shown)
+    title = 'Repartition of the most sent stickers of this conversation'.format(sticker_shown)
     fig_name = output_dir + '/sticker.png'
     sticker = conv.get_sticker_repartition()
     sticker_sorted = sorted(sticker.items(), key=operator.itemgetter(1), reverse=True)
-    x = []
-    y = []
-    for item in sticker_sorted[:sticker_shown]:
-        x.append(item[0])
-        y.append(item[1])
-    create_bar_plot_stickers(x, "Stickers", y, "Number of stickers", title, fig_name, sticker_dir)
-    exported_images.append(fig_name)
+    if len(sticker_sorted) != 0:
+        x = []
+        y = []
+        for item in sticker_sorted[:sticker_shown]:
+            x.append(item[0])
+            y.append(item[1])
+        create_bar_plot_stickers(x, "Stickers", y, "Number of stickers", title, fig_name, sticker_dir)
+        exported_images.append(fig_name)
 
 
     #Reactions
     fig_name = output_dir + '/reactions.png'
     reaction = conv.get_reactions_repartition()
     reaction_sorted = sorted(reaction.items(), key=operator.itemgetter(1), reverse=True)
-    x = []
-    y = []
-    title = 'Repartition of the {} sent reactions of this conversation'.format(sum(y))
-    for item in reaction_sorted:
-        x.append(item[0])
-        y.append(item[1])
-    create_bar_plot_emoji(x, "Reactions", y, "Number of reactions", title, fig_name, "./emoji/")
-    exported_images.append(fig_name)
+    #Older conversation might not have any reactions
+    if len(reaction_sorted) != 0:
+        x = []
+        y = []
+        for item in reaction_sorted:
+            x.append(item[0])
+            y.append(item[1])
+        title = 'Repartition of the {} sent reactions of this conversation'.format(sum(y))
+        create_bar_plot_emoji(x, "Reactions", y, "Number of reactions", title, fig_name, "./../emoji/")
+        exported_images.append(fig_name)
 
 
     return exported_images
