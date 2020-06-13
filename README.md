@@ -31,21 +31,51 @@ The output will consist of several PNG files:
 
 * **Messages per days**: Heatmap representing the messages repartition per days for a year. We output one heatmap for each year of the conversation
 
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/heatmap2019.png)
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/heatmap2020.png)
+
 * **Messages per participants**: A pie and a bar chart representing the number of messages sent per participant. If there is more than a certain number of participants in the conversation we aggregate the one who send the least messages in the pie chart
+
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/msg_per_participants_pie.png)
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/msg_per_participants_bar.png)
+
 
 * **Characters per participants**: A bar chart representing the number of characters sent per participant. This data can be uselful to correlate with the messages per participant
 
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/char_per_participants.png)
+
+
 * **Pictures per participants**: A pie and a bar chart representing the number of pictures sent per participant.  If there is more than a certain number of participants in the conversation we aggregate the one who sent the least messages in the pie chart
+
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/pics_per_participants_pie.png)
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/pics_per_participants_bar.png)
+
 
 * **Message per year**: A bar chart representing the number of messages sent for each year of the conversation
 
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/year.png)
+
+
 * **Message per weekday**:  A bar chart representing the number of messages sent per weekdays
+
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/weekday.png)
+
 
 * **Message per hour**: A bar chart representing the number of messages sent per hours (from 0 to 23)
 
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/hour.png)
+
+
 * **Sticker**: A bar chart representing the repartition of the most sent stickers
 
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/sticker.png)
+
+
 * **Reactions**: A bar chart representing the repartition of the different reactions used
+
+![alt text](https://github.com/Nargrimm/messenger_stats/blob/master/output_example/reactions.png)
+
+
 
 * **Merge**: A PNG merging all the of the aboved pictures in one big pictures
 
